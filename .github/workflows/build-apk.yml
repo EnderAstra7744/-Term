@@ -1,4 +1,4 @@
-name: Build APK
+name: Build ΣTerm APK
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: Build ΣTerm APK
+    name: Build Debug APK
     runs-on: ubuntu-latest
 
     steps:
@@ -23,21 +23,37 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: gradle
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'tools platform-tools platforms;android-34 build-tools;34.0.0'
 
-      - name: Grant execute permission for gradlew
+      - name: Accept Android licenses
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --list | head -5
+
+      - name: Make gradlew executable
         run: chmod +x ./gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: |
+          ./gradlew assembleDebug --stacktrace --info 2>&1 | tee build.log
+          # Show last 80 lines of log if it fails
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "===== LAST 80 LINES OF BUILD LOG ====="
+            tail -80 build.log
+            exit 1
+          fi
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: ΣTerm-debug
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
 
       - name: Build Release APK (unsigned)
         if: startsWith(github.ref, 'refs/tags/')
