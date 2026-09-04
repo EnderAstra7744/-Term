@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="assets/sigma_text.png" width="500">
+</p>
+
+
+
 # ΣTerm – Native Android Terminal
 
 Gerçek bir Android uygulaması. Orijinal Termux script’inin neredeyse tüm komutları Kotlin ile yeniden yazıldı.
