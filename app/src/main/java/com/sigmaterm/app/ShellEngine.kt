@@ -688,8 +688,6 @@ class ShellEngine(private val context: Context) {
         val os = "Android ${Build.VERSION.RELEASE}"
         val kernel = System.getProperty("os.version") ?: "bilinmiyor"
         val uptime = try {
-            val up = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
-            // just show device uptime roughly
             val min = TimeUnit.MILLISECONDS.toMinutes(android.os.SystemClock.elapsedRealtime())
             "${min / 60}h ${min % 60}m"
         } catch (e: Exception) {
