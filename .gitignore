@@ -13,4 +13,4 @@
 app/build/
 .idea/
 *.log
-assets/sigma_text.png
+/assets
