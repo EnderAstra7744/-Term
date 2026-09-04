@@ -1,145 +1,160 @@
 package com.sigmaterm.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.Settings
+import android.text.Spannable
 import android.text.SpannableStringBuilder
-import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
-import android.widget.EditText
 import android.widget.ScrollView
-import android.widget.TextView
-import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.view.WindowCompat
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
+import com.sigmaterm.app.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var tvOutput: TextView
-    private lateinit var etInput: EditText
-    private lateinit var tvPrompt: TextView
-    private lateinit var scrollOutput: ScrollView
+    private lateinit var binding: ActivityMainBinding
+    private lateinit var shell: ShellEngine
 
-    private val shell = SigmaShell()
+    private val errorColor = Color.parseColor("#FF5252")
+    private val infoColor = Color.parseColor("#FFD740")
+    private val promptColor = Color.parseColor("#B0B0B0")
+    private val pathColor = Color.parseColor("#4FC3F7")
+    private val normalColor = Color.parseColor("#E0E0E0")
 
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* handled on next command */ }
+    private val requestStorage = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        tvOutput = findViewById(R.id.tvOutput)
-        etInput = findViewById(R.id.etInput)
-        tvPrompt = findViewById(R.id.tvPrompt)
-        scrollOutput = findViewById(R.id.scrollOutput)
+        shell = ShellEngine(this)
 
-        requestStoragePermissions()
-        shell.init(this)
+        requestStoragePermission()
 
-        appendInfo(getString(R.string.welcome_message))
+        appendWelcome()
         updatePrompt()
 
-        etInput.setOnEditorActionListener { _, actionId, event ->
-            if (actionId == EditorInfo.IME_ACTION_GO ||
+        binding.etInput.setOnEditorActionListener { _, actionId, event ->
+            if (actionId == EditorInfo.IME_ACTION_DONE ||
                 (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
             ) {
-                executeCommand()
+                runCommand()
                 true
-            } else false
-        }
-
-        etInput.requestFocus()
-    }
-
-    private fun requestStoragePermissions() {
-        val permissions = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED
-            ) permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED
-            ) permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        }
-        if (permissions.isNotEmpty()) {
-            requestPermissionLauncher.launch(permissions.toTypedArray())
-        }
-    }
-
-    private fun executeCommand() {
-        val line = etInput.text.toString().trim()
-        etInput.setText("")
-
-        if (line.isEmpty()) return
-
-        // Echo the command with prompt
-        appendRaw("${tvPrompt.text}$line\n")
-
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                shell.execute(line)
+            } else {
+                false
             }
-            when (result) {
-                is ShellResult.Output -> appendRaw(result.text)
-                is ShellResult.Error -> appendError(result.message)
-                is ShellResult.Info -> appendInfo(result.message)
-                is ShellResult.Clear -> tvOutput.text = ""
-                is ShellResult.Exit -> {
-                    appendInfo("Çıkılıyor...")
-                    finish()
+        }
+
+        binding.btnSend.setOnClickListener { runCommand() }
+    }
+
+    private fun requestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                    intent.data = Uri.parse("package:$packageName")
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    startActivity(intent)
                 }
             }
-            updatePrompt()
-            scrollToBottom()
+        } else {
+            val perms = arrayOf(
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+            val need = perms.filter {
+                ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+            }
+            if (need.isNotEmpty()) {
+                ActivityCompat.requestPermissions(this, need.toTypedArray(), requestStorage)
+            }
         }
+    }
+
+    private fun appendWelcome() {
+        appendColored("[*] ΣTerm'e hoş geldiniz. Giriş yapmak için: ca <isim>\n", infoColor)
     }
 
     private fun updatePrompt() {
-        val user = shell.userName
-        val path = shell.displayPath()
-        val prompt = "$user@ΣTerm:$pathΣ $ "
-        tvPrompt.text = prompt
+        binding.tvPrompt.text = shell.getPrompt()
     }
 
-    private fun appendRaw(text: String) {
-        tvOutput.append(text)
-        if (!text.endsWith("\n")) tvOutput.append("\n")
+    private fun runCommand() {
+        val input = binding.etInput.text.toString()
+        binding.etInput.setText("")
+
+        // Echo the command line
+        val prompt = shell.getPrompt()
+        appendColored(prompt, promptColor)
+        appendColored(input + "\n", normalColor)
+
+        if (input.trim().isEmpty()) {
+            updatePrompt()
+            return
+        }
+
+        val results = shell.execute(input)
+
+        for (out in results) {
+            when {
+                out.text == "\u000C" -> {
+                    binding.tvOutput.text = ""
+                    appendWelcome()
+                }
+                out.isError -> appendColored(out.text + "\n", errorColor)
+                out.isInfo -> appendColored(out.text + "\n", infoColor)
+                else -> appendColored(out.text + "\n", normalColor)
+            }
+        }
+
+        if (input.trim() == "exit") {
+            finish()
+            return
+        }
+
+        updatePrompt()
+        scrollToBottom()
     }
 
-    private fun appendError(msg: String) {
-        val ssb = SpannableStringBuilder("[X] $msg\n")
-        ssb.setSpan(
-            ForegroundColorSpan(ContextCompat.getColor(this, R.color.error_red)),
-            0, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        tvOutput.append(ssb)
-    }
-
-    private fun appendInfo(msg: String) {
-        val ssb = SpannableStringBuilder("[*] $msg\n")
-        ssb.setSpan(
-            ForegroundColorSpan(ContextCompat.getColor(this, R.color.info_yellow)),
-            0, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        tvOutput.append(ssb)
+    private fun appendColored(text: String, color: Int) {
+        val sb = SpannableStringBuilder(binding.tvOutput.text)
+        val start = sb.length
+        sb.append(text)
+        sb.setSpan(ForegroundColorSpan(color), start, sb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        binding.tvOutput.text = sb
     }
 
     private fun scrollToBottom() {
-        scrollOutput.post {
-            scrollOutput.fullScroll(ScrollView.FOCUS_DOWN)
+        binding.scrollOutput.post {
+            binding.scrollOutput.fullScroll(ScrollView.FOCUS_DOWN)
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == requestStorage) {
+            if (grantResults.any { it != PackageManager.PERMISSION_GRANTED }) {
+                Toast.makeText(this, "Depolama izni olmadan dosya işlemleri kısıtlı çalışır", Toast.LENGTH_LONG).show()
+            }
         }
     }
 }

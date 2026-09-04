@@ -4,10 +4,9 @@
     <color name="white">#FFFFFFFF</color>
     <color name="terminal_bg">#FF0D0D0D</color>
     <color name="terminal_fg">#FFE0E0E0</color>
-    <color name="prompt_user">#FFAAAAAA</color>
+    <color name="prompt_user">#FFB0B0B0</color>
     <color name="prompt_path">#FF4FC3F7</color>
-    <color name="prompt_symbol">#FFCECECE</color>
-    <color name="error_red">#FFFF5252</color>
-    <color name="info_yellow">#FFFFD740</color>
-    <color name="accent">#FF00E5FF</color>
+    <color name="error">#FFFF5252</color>
+    <color name="info">#FFFFD740</color>
+    <color name="accent">#FF69F0AE</color>
 </resources>

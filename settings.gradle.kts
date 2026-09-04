@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ΣTerm"
+rootProject.name = "SigmaTerm"
 include(":app")
