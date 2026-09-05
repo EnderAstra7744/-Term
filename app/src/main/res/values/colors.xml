@@ -1,4 +1,5 @@
 <resources>
+    <color name="black">#000000</color>
     <color name="terminal_bg">#000000</color>
     <color name="terminal_fg">#C7C7C7</color>
     <color name="terminal_prompt">#00E5FF</color>
