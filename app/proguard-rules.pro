@@ -1,2 +1,1 @@
-# Keep everything for this simple app
--keep class com.sigmaterm.app.** { *; }
+# ΣTerm için özel proguard kuralı gerekmiyor.

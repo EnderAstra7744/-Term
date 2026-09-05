@@ -1,6 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ΣTerm</string>
-    <string name="welcome_message">ΣTerm\'e hoş geldiniz. Giriş yapmak için: ca &lt;isim&gt;</string>
-    <string name="hint_input">komut girin…</string>
+    <string name="input_hint">komut yaz…</string>
 </resources>

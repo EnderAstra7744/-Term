@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="app/src/main/assets/sigma_text.png" width="500">
+  <img src="assets/sigma_text.png" width="500">
 </p>
 
 
 
 # ΣTerm – Native Android Terminal
 
-Gerçek bir Android uygulaması. Orijinal Termux script’inin neredeyse tüm komutları Kotlin ile yeniden yazıldı.
+Gerçek bir Android uygulaması. Orijinal Termux script'inin neredeyse tüm komutları Kotlin ile yeniden yazıldı.
 
 ## Desteklenen Komutlar
 
@@ -21,21 +21,13 @@ Gerçek bir Android uygulaması. Orijinal Termux script’inin neredeyse tüm ko
 | `whoami`, `id` | Kullanıcı bilgisi |
 | `history` / `!!` | Komut geçmişi |
 | `alias isim=komut` | Alias |
-| `theme <isim>` | Renk teması (gray, red, green, blue, purple, cyan, yellow, matrix) |
-| `fortune` / `quote` | Rastgele söz |
-| `ascii <metin>` | Büyük ASCII harfler |
-| `portal set/del/<isim>` | Dizin kısayolu (bookmark) |
-| `snapshot` / `restore` | Dizin dosya listesi anlık görüntüsü ve karşılaştırma |
-| `diskmap` | Alt klasör boyut bar-chart |
-| `lock` / `unlock` | Parola ile kilit |
-| `stats` | Oturum istatistikleri |
 | `neofetch` | Sistem bilgisi |
 | `clear`, `echo`, `help`, `exit` | Diğer |
 
 ## Hızlı Başlangıç
 
-1. Zip’i aç
-2. Android Studio → **Open** → `SigmaTerm-Android` klasörü
+1. Zip'i aç
+2. Android Studio → **Open** → `ΣTerm-Android` klasörü
 3. Run
 
 veya:
@@ -45,39 +37,53 @@ veya:
 # APK → app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## GitHub Actions ile APK
-
-Projeyi GitHub’a push’ladıktan sonra **Actions** sekmesinden “Build APK” workflow’u otomatik çalışır.
-
-Manuel tetiklemek için:
-
-```
-Actions → Build APK → Run workflow
-```
-
-Artifact olarak `SigmaTerm-debug` APK’sı indirilebilir.
-
 ## Notlar
 
-- Tüm dosya işlemleri primary external storage (`/storage/emulated/0`) altında sandbox’lanır.
-- `arch` / `distro` / `proot-distro` ve `git` / `github` / `gitea` komutları **kasıtlı olarak kaldırıldı** (native Android ortamında anlamsız / gereksiz bağımlılık).
-- `edit` komutu terminal içinde çalışır mantığı korunmuştur; UI entegrasyonu basit tutulmuştur.
-- Depolama erişimi için Android 11+ cihazlarda “Tüm dosyalara erişim” izni istenir.
-- Orijinal bash script’in (σTerm) config, alias, portal, snapshot, theme, lock, fortune, ascii, diskmap gibi yaratıcı özellikleri Kotlin’e taşındı.
-
-## Yapılan Değişiklikler (orijinal script → native)
-
-| Özellik | Durum |
-|---------|-------|
-| proot-distro / arch / distro | **Kaldırıldı** |
-| git / github / gitea passthrough | **Kaldırıldı** |
-| Termux:API (note, vibrate, toast) | Basitleştirildi / native API’ye geçirildi (battery tam, diğerleri opsiyonel) |
-| Dosya sistemi sandbox | Korundu (`resolveInBase`) |
-| Config (`.sigmatermrc`) | Shared filesDir’e taşındı |
-| Prompt, tema, history, alias | Tamamen yeniden yazıldı |
-| get (download) | HttpURLConnection ile native |
-| neofetch | Android Build bilgileri ile güncellendi |
+- Tüm dosya işlemleri primary external storage altında sandbox'lanır.
+- `arch` / `distro` / `git` gibi Termux'a özel komutlar native ortamda anlamsız olduğu için eklenmedi.
+- `edit` komutu terminal içinde çalışır (orijinal script ile aynı mantık).
 
 ## Lisans
 
 MIT
+
+---
+
+## Bu Sürümde Yapılan Değişiklikler
+
+Bu proje, orijinal `sigma_term.sh` (Termux/bash) betiğinin GitHub Actions ile
+kolayca `.apk`'ya derlenebilecek native bir Kotlin/Android sürümüdür.
+
+**Kaldırılanlar** (talep üzerine, native ortamda anlamsız/gereksiz oldukları için):
+
+- `arch` / `arch install` / `distro` — `proot-distro` tabanlı Arch Linux
+  kurulum ve giriş komutları tamamen çıkarıldı.
+- `git`, `github`, `gitea` — sistem komutlarına passthrough yapan bu üç komut
+  kaldırıldı; native bir Android uygulamasında karşılığı yoktur.
+
+**Native Android'e taşınırken uyarlananlar:**
+
+- Dosya sistemi işlemleri artık Termux'un `/storage/emulated/0` yolunu
+  gizleyen mantığı yerine, uygulamaya özel harici depolama alanını
+  (`Context.getExternalFilesDir`) `~` olarak gösterip sandbox'lar; ekstra
+  depolama izni istemez.
+- `get` komutundaki indirme işlemi `HttpURLConnection` ile arka planda
+  (coroutine/IO thread) çalışır; `-github` kaynağı için `blob` → `raw`
+  URL dönüşümü korunmuştur. `--zip`/`--unzip` seçenekleri Kotlin'in
+  `ZipInputStream`'i ile native olarak işlenir (harici `unzip` aracı
+  gerekmez).
+- `battery` komutu artık gerçek Android `BatteryManager` API'sinden veri
+  okur (Termux:API gerekmez).
+- `neofetch` komutu cihaz modeli, Android sürümü, RAM ve depolama
+  kullanımını doğrudan Android sistem servislerinden (`ActivityManager`,
+  `StatFs`) okuyarak gösterir.
+- Hata mesajları `[X]` (kırmızı), bilgilendirme mesajları `[*]` (sarı)
+  önekiyle gösterilmeye devam ediyor; bu davranış bash sürümüyle
+  birebir aynı tutuldu.
+- `alias` ve kullanıcı adı (`ca`) artık `SharedPreferences` ile kalıcı
+  olarak saklanıyor (bash sürümündeki `.sigmatermrc` dosyasının karşılığı).
+- Uygulama ikonu ve terminal içi logo, verilen ΣTerm görselleriyle
+  güncellendi (`assets/sigma_text.png`, launcher ikonları).
+- `.github/workflows/build-apk.yml` eklendi: her push'ta debug APK'yı
+  otomatik derleyip artifact olarak yükler, wrapper dosyası gerektirmeden
+  Gradle 8.7'yi doğrudan kurar.

@@ -1,160 +1,92 @@
 package com.sigmaterm.app
 
-import android.Manifest
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.provider.Settings
-import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
-import android.widget.ScrollView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.sigmaterm.app.databinding.ActivityMainBinding
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var shell: ShellEngine
-
-    private val errorColor = Color.parseColor("#FF5252")
-    private val infoColor = Color.parseColor("#FFD740")
-    private val promptColor = Color.parseColor("#B0B0B0")
-    private val pathColor = Color.parseColor("#4FC3F7")
-    private val normalColor = Color.parseColor("#E0E0E0")
-
-    private val requestStorage = 1001
+    private lateinit var engine: TerminalEngine
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        shell = ShellEngine(this)
+        engine = TerminalEngine(applicationContext)
 
-        requestStoragePermission()
-
-        appendWelcome()
+        appendLine(Line("\u03A3Term'e hoş geldiniz. Kullanıcı adı değiştirmek için: ca <isim>", LineType.INFO))
         updatePrompt()
 
-        binding.etInput.setOnEditorActionListener { _, actionId, event ->
-            if (actionId == EditorInfo.IME_ACTION_DONE ||
-                (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
-            ) {
+        binding.commandInput.setOnEditorActionListener { _, actionId, event ->
+            val isEnter = event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN
+            if (actionId == EditorInfo.IME_ACTION_SEND || actionId == EditorInfo.IME_ACTION_DONE || isEnter) {
                 runCommand()
                 true
             } else {
                 false
             }
         }
-
-        binding.btnSend.setOnClickListener { runCommand() }
-    }
-
-    private fun requestStoragePermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
-                try {
-                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                    intent.data = Uri.parse("package:$packageName")
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                    startActivity(intent)
-                }
-            }
-        } else {
-            val perms = arrayOf(
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            )
-            val need = perms.filter {
-                ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-            }
-            if (need.isNotEmpty()) {
-                ActivityCompat.requestPermissions(this, need.toTypedArray(), requestStorage)
-            }
-        }
-    }
-
-    private fun appendWelcome() {
-        appendColored("[*] ΣTerm'e hoş geldiniz. Giriş yapmak için: ca <isim>\n", infoColor)
-    }
-
-    private fun updatePrompt() {
-        binding.tvPrompt.text = shell.getPrompt()
     }
 
     private fun runCommand() {
-        val input = binding.etInput.text.toString()
-        binding.etInput.setText("")
+        val text = binding.commandInput.text.toString()
+        binding.commandInput.setText("")
+        if (text.isBlank()) return
 
-        // Echo the command line
-        val prompt = shell.getPrompt()
-        appendColored(prompt, promptColor)
-        appendColored(input + "\n", normalColor)
+        appendLine(Line("${engine.promptLabel()}$text", LineType.ECHO))
 
-        if (input.trim().isEmpty()) {
-            updatePrompt()
-            return
-        }
-
-        val results = shell.execute(input)
-
-        for (out in results) {
-            when {
-                out.text == "\u000C" -> {
-                    binding.tvOutput.text = ""
-                    appendWelcome()
+        lifecycleScope.launch {
+            val result = engine.process(text)
+            for (line in result) {
+                when (line.text) {
+                    "__CLEAR__" -> binding.outputText.text = ""
+                    "__EXIT__" -> finish()
+                    else -> appendLine(line)
                 }
-                out.isError -> appendColored(out.text + "\n", errorColor)
-                out.isInfo -> appendColored(out.text + "\n", infoColor)
-                else -> appendColored(out.text + "\n", normalColor)
             }
+            updatePrompt()
+            scrollToBottom()
         }
+    }
 
-        if (input.trim() == "exit") {
-            finish()
-            return
+    private fun updatePrompt() {
+        binding.promptLabel.text = engine.promptLabel()
+    }
+
+    private fun appendLine(line: Line) {
+        val color = when (line.type) {
+            LineType.ERROR -> ContextCompat.getColor(this, R.color.terminal_error)
+            LineType.INFO -> ContextCompat.getColor(this, R.color.terminal_info)
+            LineType.ACCENT -> ContextCompat.getColor(this, R.color.terminal_prompt)
+            LineType.DIM -> Color.parseColor("#777777")
+            LineType.ECHO -> ContextCompat.getColor(this, R.color.terminal_prompt)
+            LineType.NORMAL -> ContextCompat.getColor(this, R.color.terminal_fg)
         }
-
-        updatePrompt()
+        val prefix = when (line.type) {
+            LineType.ERROR -> "[X] "
+            LineType.INFO -> "[*] "
+            else -> ""
+        }
+        val text = prefix + line.text
+        val span = SpannableStringBuilder(text + "\n")
+        span.setSpan(ForegroundColorSpan(color), 0, text.length, 0)
+        binding.outputText.append(span)
         scrollToBottom()
     }
 
-    private fun appendColored(text: String, color: Int) {
-        val sb = SpannableStringBuilder(binding.tvOutput.text)
-        val start = sb.length
-        sb.append(text)
-        sb.setSpan(ForegroundColorSpan(color), start, sb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-        binding.tvOutput.text = sb
-    }
-
     private fun scrollToBottom() {
-        binding.scrollOutput.post {
-            binding.scrollOutput.fullScroll(ScrollView.FOCUS_DOWN)
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == requestStorage) {
-            if (grantResults.any { it != PackageManager.PERMISSION_GRANTED }) {
-                Toast.makeText(this, "Depolama izni olmadan dosya işlemleri kısıtlı çalışır", Toast.LENGTH_LONG).show()
-            }
+        binding.outputScroll.post {
+            binding.outputScroll.fullScroll(android.view.View.FOCUS_DOWN)
         }
     }
 }
