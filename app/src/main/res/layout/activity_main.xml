@@ -9,7 +9,7 @@
     <ImageView
         android:id="@+id/logoImage"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="40dp"
         android:layout_marginTop="8dp"
         android:layout_marginHorizontal="16dp"
         android:scaleType="fitStart"
@@ -23,7 +23,9 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:scrollbars="vertical"
-        android:padding="8dp">
+        android:background="@color/terminal_bg"
+        android:paddingHorizontal="10dp"
+        android:paddingTop="8dp">
 
         <TextView
             android:id="@+id/outputText"
@@ -32,16 +34,18 @@
             android:fontFamily="monospace"
             android:textColor="@color/terminal_fg"
             android:textIsSelectable="true"
+            android:lineSpacingExtra="2dp"
             android:textSize="13sp" />
     </ScrollView>
 
+    <!-- Komut satırı: siyah terminal ekranıyla aynı arka plan, kesintisiz görünüm -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:background="@color/input_bg"
-        android:paddingHorizontal="8dp"
-        android:paddingVertical="4dp"
+        android:background="@color/terminal_bg"
+        android:paddingHorizontal="10dp"
+        android:paddingBottom="6dp"
         android:gravity="center_vertical">
 
         <TextView
@@ -66,8 +70,45 @@
             android:inputType="text"
             android:maxLines="1"
             android:textColor="@color/terminal_fg"
+            android:textCursorDrawable="@null"
             android:textColorHint="#555555"
             android:textSize="13sp" />
+    </LinearLayout>
+
+    <!-- Termux tarzı ek tuş çubuğu: klavyenin hemen üstünde durur -->
+    <LinearLayout
+        android:id="@+id/extraKeysBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@color/key_bar_bg">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="5">
+
+            <TextView android:id="@+id/keyEsc" style="@style/ExtraKey" android:text="ESC" />
+            <TextView android:id="@+id/keyHome" style="@style/ExtraKey" android:text="HOME" />
+            <TextView android:id="@+id/keyUp" style="@style/ExtraKey" android:text="↑" />
+            <TextView android:id="@+id/keyEnd" style="@style/ExtraKey" android:text="END" />
+            <TextView android:id="@+id/keyPgUp" style="@style/ExtraKey" android:text="PGUP" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="6">
+
+            <TextView android:id="@+id/keyCtrl" style="@style/ExtraKey" android:text="CTRL" />
+            <TextView android:id="@+id/keyAlt" style="@style/ExtraKey" android:text="ALT" />
+            <TextView android:id="@+id/keyLeft" style="@style/ExtraKey" android:text="←" />
+            <TextView android:id="@+id/keyDown" style="@style/ExtraKey" android:text="↓" />
+            <TextView android:id="@+id/keyRight" style="@style/ExtraKey" android:text="→" />
+            <TextView android:id="@+id/keyPgDn" style="@style/ExtraKey" android:text="PGDN" />
+        </LinearLayout>
     </LinearLayout>
 
 </LinearLayout>

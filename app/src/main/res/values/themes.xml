@@ -6,4 +6,18 @@
         <item name="colorPrimaryDark">@color/terminal_bg</item>
         <item name="colorAccent">@color/terminal_prompt</item>
     </style>
+
+    <style name="ExtraKey">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_margin">1dp</item>
+        <item name="android:background">@drawable/key_divider</item>
+        <item name="android:gravity">center</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textColor">@color/key_fg</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
 </resources>
