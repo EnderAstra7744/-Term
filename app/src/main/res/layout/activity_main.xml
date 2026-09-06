@@ -70,7 +70,7 @@
             android:inputType="text"
             android:maxLines="1"
             android:textColor="@color/terminal_fg"
-            android:textCursorDrawable="@null"
+            android:textCursorDrawable="@drawable/terminal_cursor"
             android:textColorHint="#555555"
             android:textSize="13sp" />
     </LinearLayout>
