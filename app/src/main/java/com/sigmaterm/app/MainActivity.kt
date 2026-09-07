@@ -404,15 +404,15 @@ class MainActivity : AppCompatActivity() {
 
         val span = SpannableStringBuilder()
         if (line.rightText != null) {
-            // Side-by-side rendering (used by neofetch): left info column + right logo column.
-            val padded = leftText.padEnd(30)
-            val startLeft = span.length
-            span.append(padded)
-            span.setSpan(ForegroundColorSpan(color), startLeft, span.length, 0)
+            // Side-by-side rendering (used by neofetch): logo column (left) + info column (right).
+            val logoCol = line.rightText.padEnd(13)
+            val startLogo = span.length
+            span.append(logoCol)
+            span.setSpan(ForegroundColorSpan(line.rightColor ?: color), startLogo, span.length, 0)
 
-            val startRight = span.length
-            span.append(line.rightText)
-            span.setSpan(ForegroundColorSpan(line.rightColor ?: color), startRight, span.length, 0)
+            val startInfo = span.length
+            span.append(leftText)
+            span.setSpan(ForegroundColorSpan(color), startInfo, span.length, 0)
             span.append("\n")
         } else {
             span.append(leftText)

@@ -1323,39 +1323,38 @@ class TerminalEngine(private val context: Context) {
     // neofetch
     // -----------------------------------------------------
 
-    private fun brandBadge(letter: Char): List<String> = listOf(
-        "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510",
-        "\u2502         \u2502",
-        "\u2502    $letter    \u2502",
-        "\u2502         \u2502",
-        "\u2502  \u03A3Term  \u2502",
-        "\u2502         \u2502",
-        "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518"
+    /**
+     * Real Android ascii art, ported verbatim from dylanaraps/neofetch
+     * (ascii/distro entry "Android", MIT licensed — see README for the
+     * full license text). neofetch colors this with `set_colors 2 7`,
+     * i.e. ANSI green (c1) as the main color and white/gray (c2) for the
+     * small accent dots on the head. We render it single-tone in green
+     * since our renderer colors a whole logo line at once; the two-tone
+     * detail on the "eyes" row is the only thing lost in translation.
+     */
+    private val androidAsciiLogo = listOf(
+        "         -o          o-",
+        "          +hydNNNNdyh+",
+        "        +mMMMMMMMMMMMMm+",
+        "      `dMMm:NMMMMMMN:mMMd`",
+        "      hMMMMMMMMMMMMMMMMMMh",
+        "  ..  yyyyyyyyyyyyyyyyyyyy  ..",
+        ".mMMm`MMMMMMMMMMMMMMMMMMMM`mMMm.",
+        ":MMMM-MMMMMMMMMMMMMMMMMMMM-MMMM:",
+        ":MMMM-MMMMMMMMMMMMMMMMMMMM-MMMM:",
+        ":MMMM-MMMMMMMMMMMMMMMMMMMM-MMMM:",
+        ":MMMM-MMMMMMMMMMMMMMMMMMMM-MMMM:",
+        "-MMMM-MMMMMMMMMMMMMMMMMMMM-MMMM-",
+        " +yy+ MMMMMMMMMMMMMMMMMMMM +yy+",
+        "      mMMMMMMMMMMMMMMMMMMm",
+        "      `/++MMMMh++hMMMM++/`",
+        "          MMMMo  oMMMM",
+        "          MMMMo  oMMMM",
+        "          oNMm-  -mMNs"
     )
 
-    /**
-     * Small OS/device-brand-based theme table, in the spirit of neofetch's
-     * per-distro ascii art + color scheme (see README for attribution).
-     * Since this app only ever runs on Android, we key off the device
-     * manufacturer instead of the OS itself so the logo/colors still vary
-     * from device to device.
-     */
-    private fun brandTheme(): Triple<String, Int, List<String>> {
-        val mfr = Build.MANUFACTURER.lowercase()
-        return when {
-            mfr.contains("samsung") -> Triple("Samsung", 0xFF1428A0.toInt(), brandBadge('S'))
-            mfr.contains("xiaomi") || mfr.contains("redmi") || mfr.contains("poco") ->
-                Triple("Xiaomi", 0xFFFF6900.toInt(), brandBadge('M'))
-            mfr.contains("google") -> Triple("Pixel", 0xFF4285F4.toInt(), brandBadge('G'))
-            mfr.contains("oneplus") -> Triple("OnePlus", 0xFFEB0028.toInt(), brandBadge('+'))
-            mfr.contains("huawei") || mfr.contains("honor") -> Triple("Huawei", 0xFFFF0000.toInt(), brandBadge('H'))
-            mfr.contains("sony") -> Triple("Sony", 0xFF1A1A1A.toInt(), brandBadge('X'))
-            mfr.contains("oppo") -> Triple("OPPO", 0xFF1BA784.toInt(), brandBadge('O'))
-            mfr.contains("vivo") -> Triple("Vivo", 0xFF415FFF.toInt(), brandBadge('V'))
-            mfr.contains("motorola") -> Triple("Motorola", 0xFF5B54F9.toInt(), brandBadge('M'))
-            else -> Triple("Android", 0xFF3DDC84.toInt(), brandBadge('A'))
-        }
-    }
+    // neofetch's ANSI color 2 (green) — matches `set_colors 2 7` for the Android entry.
+    private val androidAccent = 0xFF00AA00.toInt()
 
     private fun neofetch(): List<Line> {
         val out = mutableListOf<Line>()
@@ -1375,30 +1374,33 @@ class TerminalEngine(private val context: Context) {
         val hours = uptimeMin / 60
         val mins = uptimeMin % 60
 
-        val (brandName, accent, logoLines) = brandTheme()
+        val title = "$userName@\u03A3Term"
 
+        // Mirrors neofetch's default print_info(): title, underline, then "Label: value" rows.
         val infoLines = listOf(
-            "$userName@\u03A3Term" to LineType.ACCENT,
-            "----------------" to LineType.DIM,
-            "Device: ${Build.MANUFACTURER} ${Build.MODEL}" to LineType.NORMAL,
-            "Brand theme: $brandName" to LineType.NORMAL,
-            "Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})" to LineType.NORMAL,
+            title to LineType.ACCENT,
+            "-".repeat(title.length) to LineType.DIM,
+            "OS: Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})" to LineType.NORMAL,
+            "Host: ${Build.MANUFACTURER} ${Build.MODEL}" to LineType.NORMAL,
+            "Kernel: ${System.getProperty("os.version") ?: "unknown"}" to LineType.NORMAL,
             "Uptime: ${hours}h ${mins}m" to LineType.NORMAL,
+            "Shell: \u03A3Term" to LineType.NORMAL,
             "Memory: ${humanSize(usedMem)}/${humanSize(mi.totalMem)}" to LineType.NORMAL,
-            "Storage: ${humanSize(usedBytes)}/${humanSize(totalBytes)}" to LineType.NORMAL,
+            "Disk: ${humanSize(usedBytes)}/${humanSize(totalBytes)}" to LineType.NORMAL,
             "Storage access: ${if (hasFullStorageAccess) "full" else "sandboxed"}" to LineType.NORMAL,
             "Directory: ${hidePath(curDir)}" to LineType.NORMAL
         )
 
         out.add(Line(""))
-        val maxLines = maxOf(infoLines.size, logoLines.size)
+        val maxLines = maxOf(infoLines.size, androidAsciiLogo.size)
         for (i in 0 until maxLines) {
             val (infoText, infoType) = infoLines.getOrElse(i) { "" to LineType.NORMAL }
-            val logoText = logoLines.getOrElse(i) { "" }
-            out.add(Line(infoText, infoType, rightText = logoText, rightColor = accent))
+            val logoText = androidAsciiLogo.getOrElse(i) { "" }
+            out.add(Line(infoText, infoType, rightText = logoText, rightColor = androidAccent))
         }
         out.add(Line(""))
 
+        // neofetch's default color_blocks (block_range 0-15).
         val darkPalette = listOf(
             0xFF000000.toInt(), 0xFFCC0000.toInt(), 0xFF4E9A06.toInt(), 0xFFC4A000.toInt(),
             0xFF3465A4.toInt(), 0xFF75507B.toInt(), 0xFF06989A.toInt(), 0xFFD3D7CF.toInt()

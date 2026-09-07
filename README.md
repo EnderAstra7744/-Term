@@ -252,45 +252,63 @@ boyutunu (`9sp`–`26sp` arası) değiştirir; çıktı ekranı, komut satırı 
 prompt aynı anda ölçeklenir. Seçilen boyut cihazda kalıcı olarak
 saklanır (`SharedPreferences`), bir sonraki açılışta hatırlanır.
 
-### 3) `neofetch` — yan yana düzen + cihaza göre logo/renk
+### 3) `neofetch` — real Android ascii art from upstream neofetch (v5 update)
 
-`neofetch` artık **solda bilgiler, sağda logo** şeklinde tek satırda
-yan yana basıyor (klasik neofetch yerleşiminin ayna simetriği, senin
-istediğin gibi).
+`neofetch` now shows the **logo on the left, info on the right**
+(you flagged that the first version had these reversed — fixed).
 
-**Önemli — telif hakkı notu:** Bu özelliğin ilhamı ve mimarisi
-(*"OS'e göre ascii logo + renk şeması" fikri*) doğrudan
-[dylanaraps/neofetch](https://github.com/dylanaraps/neofetch)
-projesinden alınmıştır (MIT lisanslı). **Ancak orijinal projenin
-gerçek ASCII sanat dosyalarını birebir kopyalamadım** — şu teknik
-nedenlerle:
+**v5 change:** you pasted the actual `dylanaraps/neofetch` source, so
+I replaced my earlier hand-made "brand badge" placeholder with the
+**real, verbatim Android ascii art** from that script (the `"Android"*`
+entry in `get_distro_ascii()`), ported into `androidAsciiLogo` in
+`TerminalEngine.kt`. Two honest caveats about the port:
 
-- Repo arşivlendiği için GitHub'ın dosya görüntüleyicisi 11.592
-  satırlık ana script'i tarayıcıda kısmi gösteriyor ("View remainder
-  in raw view" ile kesiyor).
-- `raw.githubusercontent.com` ve `/raw/` endpoint'leri, benim
-  kullandığım fetch aracının `robots.txt` kuralları gereği erişime
-  kapalı geldi.
-- Elimde sadece arama sonuçlarından gelen birkaç satırlık parça
-  (`get_distro_ascii` içindeki Braille tabanlı Android çizimi) vardı;
-  bunu eksik/hatalı şekilde "birebir kopya" diye sunmak hem
-  yanıltıcı hem de riskli olurdu.
+- neofetch colors that logo two-tone (`set_colors 2 7`: green body,
+  a couple of white/gray accent dots on the "eyes" row). Our renderer
+  colors a whole logo line with one color at a time, so the port is
+  single-tone green — the only visual detail lost.
+- The info fields (OS/Host/Kernel/Uptime/Shell/Memory/Disk) now follow
+  neofetch's default `print_info()` labels and title/underline
+  layout, adapted to what's actually meaningful on Android (no
+  DE/WM/GPU driver/package manager fields, since those don't apply
+  here).
 
-Bunun yerine, **kendi orijinal**, basit bir "marka rozeti" ASCII
-tasarımı yaptım (kutu çizim karakterleriyle, cihazın `Build.MANUFACTURER`
-değerine göre harf ve renk değişiyor — Samsung mavi, Xiaomi turuncu,
-Pixel mavi, OnePlus kırmızı, Huawei kırmızı, diğerleri yeşil Android
-teması). Mimari fikir neofetch'ten, görsel içerik benden.
+The `android_small` variant and the ~150 other distro logos in that
+script were **not** ported — this app only ever runs on Android, so
+they'd be dead code.
 
-Gerçek neofetch ASCII dosyalarını birebir istiyorsan, resmi depodan
-(`ascii/distro/android` ve benzerleri, MIT lisanslı) indirip
-`TerminalEngine.kt`'deki `brandBadge()`/`brandTheme()`
-fonksiyonlarına senin yapıştırman en güvenli yol — o zaman telif
-metnini de (MIT lisans + "Portions of ASCII art © Dylan Araps,
-dylanaraps/neofetch" gibi) eklerim.
+### License compliance (MIT)
 
-**Lisans atfı (bu README'de kalıcı olarak dursun):**
-> Bu projenin `neofetch` komutu, mimari fikir olarak
-> [dylanaraps/neofetch](https://github.com/dylanaraps/neofetch)
-> (MIT License, Copyright (c) 2015-2021 Dylan Araps) projesinden
-> ilham almıştır.
+Because this app now reproduces an actual code excerpt from
+`dylanaraps/neofetch` (the Android ascii art data), the MIT license
+requires the copyright notice and permission text to be included.
+Full text:
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015-2021 Dylan Araps
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+Source: <https://github.com/dylanaraps/neofetch> — only the Android
+ascii art block was reused; the rest of ΣTerm is original code under
+this project's own license.
+
