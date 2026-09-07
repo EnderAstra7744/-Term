@@ -27,7 +27,9 @@ enum class LineType { NORMAL, ERROR, INFO, ACCENT, DIM, ECHO }
 data class Line(
     val text: String,
     val type: LineType = LineType.NORMAL,
-    val paletteColors: List<Int>? = null
+    val paletteColors: List<Int>? = null,
+    val rightText: String? = null,
+    val rightColor: Int? = null
 )
 
 data class FunctionDef(val name: String, val params: List<String>, val body: List<String>)
@@ -99,6 +101,54 @@ class TerminalEngine(private val context: Context) {
     companion object {
         private const val STGK_INDEX_URL =
             "https://raw.githubusercontent.com/EnderAstra7744/sigma-stgk-sage/main/packages.json"
+
+        // Fill this in yourself (a fine-grained, read-only, single-repo token)
+        // before building if you want the "Automatic Token" option to work.
+        // WARNING: anything placed here is visible to anyone who decompiles
+        // the APK. Never commit a real token to a public repository. If this
+        // is left blank, "Automatic Token" will simply report that no token
+        // is configured and fall back to unauthenticated requests.
+        private const val BUILTIN_GITHUB_TOKEN = ""
+    }
+
+    var githubToken: String? = null
+        private set
+    var githubTokenSource: String = "none"
+        private set
+
+    fun setManualToken(token: String) {
+        githubToken = token.trim().ifBlank { null }
+        githubTokenSource = if (githubToken != null) "manual" else "none"
+        saveTokenConfig()
+    }
+
+    /** Returns true if a non-blank built-in token was actually available. */
+    fun useAutomaticToken(): Boolean {
+        githubToken = BUILTIN_GITHUB_TOKEN.ifBlank { null }
+        githubTokenSource = if (githubToken != null) "automatic" else "none"
+        saveTokenConfig()
+        return githubToken != null
+    }
+
+    fun clearToken() {
+        githubToken = null
+        githubTokenSource = "none"
+        saveTokenConfig()
+    }
+
+    fun tokenStatusText(): String = when (githubTokenSource) {
+        "manual" -> "Manual token set"
+        "automatic" -> "Automatic (built-in) token set"
+        else -> "No token configured"
+    }
+
+    private fun authHeaderValue(): String? = githubToken?.let { "token $it" }
+
+    private fun saveTokenConfig() {
+        prefs.edit()
+            .putString("github_token", githubToken ?: "")
+            .putString("github_token_source", githubTokenSource)
+            .apply()
     }
 
     init {
@@ -119,6 +169,8 @@ class TerminalEngine(private val context: Context) {
             val v = line.substring(idx + 1)
             if (k.isNotBlank()) aliases[k] = v
         }
+        githubToken = prefs.getString("github_token", "")?.ifBlank { null }
+        githubTokenSource = prefs.getString("github_token_source", "none") ?: "none"
     }
 
     private fun saveConfig() {
@@ -275,6 +327,7 @@ class TerminalEngine(private val context: Context) {
             "exit" -> out.add(Line("__EXIT__"))
             "get" -> out.addAll(doGet(args))
             "sigmaterm-storage-access" -> out.add(Line("__REQUEST_STORAGE__"))
+            "sigmaterm-change-token" -> out.add(Line("__SHOW_TOKEN_MENU__"))
 
             // ---- Scripting layer ----
             "variables" -> out.addAll(doVariables(args))
@@ -1048,6 +1101,7 @@ class TerminalEngine(private val context: Context) {
             val conn = URL(STGK_INDEX_URL).openConnection() as HttpURLConnection
             conn.connectTimeout = 15000
             conn.readTimeout = 15000
+            authHeaderValue()?.let { conn.setRequestProperty("Authorization", it) }
             if (conn.responseCode !in 200..299) return@withContext null
             val text = conn.inputStream.bufferedReader().readText()
             JSONArray(text)
@@ -1072,6 +1126,7 @@ class TerminalEngine(private val context: Context) {
                 out.add(Line("  stgk update"))
                 out.add(Line("  stgk upgrade [name] [-y]"))
                 out.add(Line("Repository: https://github.com/EnderAstra7744/sigma-stgk-sage", LineType.DIM))
+                out.add(Line("Auth: ${tokenStatusText()} (change with: sigmaterm-change-token)", LineType.DIM))
             }
             "update" -> {
                 val index = fetchIndex()
@@ -1136,6 +1191,7 @@ class TerminalEngine(private val context: Context) {
                 val ok = withContext(Dispatchers.IO) {
                     try {
                         val conn = URL(url).openConnection() as HttpURLConnection
+                        authHeaderValue()?.let { conn.setRequestProperty("Authorization", it) }
                         conn.connect()
                         if (conn.responseCode !in 200..299) return@withContext false
                         conn.inputStream.use { input -> FileOutputStream(dest).use { output -> input.copyTo(output) } }
@@ -1216,6 +1272,7 @@ class TerminalEngine(private val context: Context) {
             "edit" to "Simple line editor: edit <file>",
             "get" to "Download a file: get -<source> <URL> [--cd DIR] [--forcename NAME] [--zip|--unzip]",
             "sigmaterm-storage-access" to "Request full storage access (/storage/emulated/0)",
+            "sigmaterm-change-token" to "Choose a GitHub token (Manual or Automatic) for private stgk repo access",
             "battery" to "Show battery status",
             "whoami" to "Show the current username",
             "id" to "Show user identity info",
@@ -1266,6 +1323,40 @@ class TerminalEngine(private val context: Context) {
     // neofetch
     // -----------------------------------------------------
 
+    private fun brandBadge(letter: Char): List<String> = listOf(
+        "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510",
+        "\u2502         \u2502",
+        "\u2502    $letter    \u2502",
+        "\u2502         \u2502",
+        "\u2502  \u03A3Term  \u2502",
+        "\u2502         \u2502",
+        "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518"
+    )
+
+    /**
+     * Small OS/device-brand-based theme table, in the spirit of neofetch's
+     * per-distro ascii art + color scheme (see README for attribution).
+     * Since this app only ever runs on Android, we key off the device
+     * manufacturer instead of the OS itself so the logo/colors still vary
+     * from device to device.
+     */
+    private fun brandTheme(): Triple<String, Int, List<String>> {
+        val mfr = Build.MANUFACTURER.lowercase()
+        return when {
+            mfr.contains("samsung") -> Triple("Samsung", 0xFF1428A0.toInt(), brandBadge('S'))
+            mfr.contains("xiaomi") || mfr.contains("redmi") || mfr.contains("poco") ->
+                Triple("Xiaomi", 0xFFFF6900.toInt(), brandBadge('M'))
+            mfr.contains("google") -> Triple("Pixel", 0xFF4285F4.toInt(), brandBadge('G'))
+            mfr.contains("oneplus") -> Triple("OnePlus", 0xFFEB0028.toInt(), brandBadge('+'))
+            mfr.contains("huawei") || mfr.contains("honor") -> Triple("Huawei", 0xFFFF0000.toInt(), brandBadge('H'))
+            mfr.contains("sony") -> Triple("Sony", 0xFF1A1A1A.toInt(), brandBadge('X'))
+            mfr.contains("oppo") -> Triple("OPPO", 0xFF1BA784.toInt(), brandBadge('O'))
+            mfr.contains("vivo") -> Triple("Vivo", 0xFF415FFF.toInt(), brandBadge('V'))
+            mfr.contains("motorola") -> Triple("Motorola", 0xFF5B54F9.toInt(), brandBadge('M'))
+            else -> Triple("Android", 0xFF3DDC84.toInt(), brandBadge('A'))
+        }
+    }
+
     private fun neofetch(): List<Line> {
         val out = mutableListOf<Line>()
 
@@ -1284,34 +1375,28 @@ class TerminalEngine(private val context: Context) {
         val hours = uptimeMin / 60
         val mins = uptimeMin % 60
 
-        val logo = listOf(
-            "   ggggggggggggggg;",
-            "   4@@@===========\"",
-            "     0@@_",
-            "       @@@_",
-            "        'B@g,",
-            "          '@@g",
-            "          ,@@@",
-            "         +@@\"",
-            "       _@@F",
-            "     _@@P",
-            "   ,@@W",
-            "   @@@@@@@@@@@@@@@@     ____________,",
-            "                        BBBBBBBBBBBB?"
+        val (brandName, accent, logoLines) = brandTheme()
+
+        val infoLines = listOf(
+            "$userName@\u03A3Term" to LineType.ACCENT,
+            "----------------" to LineType.DIM,
+            "Device: ${Build.MANUFACTURER} ${Build.MODEL}" to LineType.NORMAL,
+            "Brand theme: $brandName" to LineType.NORMAL,
+            "Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})" to LineType.NORMAL,
+            "Uptime: ${hours}h ${mins}m" to LineType.NORMAL,
+            "Memory: ${humanSize(usedMem)}/${humanSize(mi.totalMem)}" to LineType.NORMAL,
+            "Storage: ${humanSize(usedBytes)}/${humanSize(totalBytes)}" to LineType.NORMAL,
+            "Storage access: ${if (hasFullStorageAccess) "full" else "sandboxed"}" to LineType.NORMAL,
+            "Directory: ${hidePath(curDir)}" to LineType.NORMAL
         )
 
         out.add(Line(""))
-        logo.forEach { out.add(Line(it, LineType.ACCENT)) }
-        out.add(Line(""))
-        out.add(Line("$userName@\u03A3Term", LineType.ACCENT))
-        out.add(Line("----------------", LineType.DIM))
-        out.add(Line("Device: ${Build.MANUFACTURER} ${Build.MODEL}"))
-        out.add(Line("Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"))
-        out.add(Line("Uptime: ${hours}h ${mins}m"))
-        out.add(Line("Memory: ${humanSize(usedMem)}/${humanSize(mi.totalMem)}"))
-        out.add(Line("Storage: ${humanSize(usedBytes)}/${humanSize(totalBytes)}"))
-        out.add(Line("Storage access: ${if (hasFullStorageAccess) "full (/storage/emulated/0)" else "sandboxed (app-private)"}"))
-        out.add(Line("Directory: ${hidePath(curDir)}"))
+        val maxLines = maxOf(infoLines.size, logoLines.size)
+        for (i in 0 until maxLines) {
+            val (infoText, infoType) = infoLines.getOrElse(i) { "" to LineType.NORMAL }
+            val logoText = logoLines.getOrElse(i) { "" }
+            out.add(Line(infoText, infoType, rightText = logoText, rightColor = accent))
+        }
         out.add(Line(""))
 
         val darkPalette = listOf(

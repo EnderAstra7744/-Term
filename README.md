@@ -212,3 +212,85 @@ tutulur.
   durdurma) söyle, ayrı ayrı takip eden bir sisteme genişletirim.
 - `stgk` gerçek reponla test edilmedi (repo private + format varsayım).
 
+---
+
+## v4 — Token Yönetimi, Pinch-to-Zoom, neofetch Yan Yana Düzen
+
+### 1) `sigmaterm-change-token`
+
+`stgk`'nin private repoya erişebilmesi için bir GitHub token seçme
+menüsü ekler. Komutu çalıştırınca iki seçenekli bir dialog açılır:
+
+- **Manual Token** — Alttan bir metin alanı çıkar, token'ı buraya
+  yapıştırırsın. `SharedPreferences`'da saklanır (düz metin — cihaz
+  root'lanmışsa veya adb backup alınırsa okunabilir, unutma).
+- **Automatic Token** — `TerminalEngine.kt` içindeki
+  `BUILTIN_GITHUB_TOKEN` sabitini kullanır.
+
+⚠️ **Güvenlik notu:** `BUILTIN_GITHUB_TOKEN` şu an **boş** bırakıldı.
+Ben sana gerçek bir token veremem/gömemem — APK'ya gömülen her şey
+decompile edilince görülebilir. "Automatic Token"ı gerçekten
+kullanmak istiyorsan:
+
+1. GitHub'da sadece `sigma-stgk-sage` reposuna salt-okunur erişimi
+   olan **fine-grained bir Personal Access Token** oluştur (repo'yu
+   yönetebilecek geniş yetkili bir token asla kullanma).
+2. `TerminalEngine.kt`'de `BUILTIN_GITHUB_TOKEN = ""` satırını
+   `BUILTIN_GITHUB_TOKEN = "github_pat_..."` yap.
+3. **Bu repoyu asla public yapma / bu haliyle GitHub'a push etme** —
+   token'ı APK içinde taşımak, o token'ı isteyen herkese açık hale
+   getirmek demektir. Bu satırı sadece kendi yerel/private build
+   makinende değiştirip derle.
+
+Alternatif (daha güvenli) yol: Automatic Token'ı hiç kullanma, herkes
+kendi Manual Token'ını girsin.
+
+### 2) İki parmakla yakınlaştırma (pinch-to-zoom)
+
+Ekranın herhangi bir yerinde iki parmakla açıp-kapatma hareketi yazı
+boyutunu (`9sp`–`26sp` arası) değiştirir; çıktı ekranı, komut satırı ve
+prompt aynı anda ölçeklenir. Seçilen boyut cihazda kalıcı olarak
+saklanır (`SharedPreferences`), bir sonraki açılışta hatırlanır.
+
+### 3) `neofetch` — yan yana düzen + cihaza göre logo/renk
+
+`neofetch` artık **solda bilgiler, sağda logo** şeklinde tek satırda
+yan yana basıyor (klasik neofetch yerleşiminin ayna simetriği, senin
+istediğin gibi).
+
+**Önemli — telif hakkı notu:** Bu özelliğin ilhamı ve mimarisi
+(*"OS'e göre ascii logo + renk şeması" fikri*) doğrudan
+[dylanaraps/neofetch](https://github.com/dylanaraps/neofetch)
+projesinden alınmıştır (MIT lisanslı). **Ancak orijinal projenin
+gerçek ASCII sanat dosyalarını birebir kopyalamadım** — şu teknik
+nedenlerle:
+
+- Repo arşivlendiği için GitHub'ın dosya görüntüleyicisi 11.592
+  satırlık ana script'i tarayıcıda kısmi gösteriyor ("View remainder
+  in raw view" ile kesiyor).
+- `raw.githubusercontent.com` ve `/raw/` endpoint'leri, benim
+  kullandığım fetch aracının `robots.txt` kuralları gereği erişime
+  kapalı geldi.
+- Elimde sadece arama sonuçlarından gelen birkaç satırlık parça
+  (`get_distro_ascii` içindeki Braille tabanlı Android çizimi) vardı;
+  bunu eksik/hatalı şekilde "birebir kopya" diye sunmak hem
+  yanıltıcı hem de riskli olurdu.
+
+Bunun yerine, **kendi orijinal**, basit bir "marka rozeti" ASCII
+tasarımı yaptım (kutu çizim karakterleriyle, cihazın `Build.MANUFACTURER`
+değerine göre harf ve renk değişiyor — Samsung mavi, Xiaomi turuncu,
+Pixel mavi, OnePlus kırmızı, Huawei kırmızı, diğerleri yeşil Android
+teması). Mimari fikir neofetch'ten, görsel içerik benden.
+
+Gerçek neofetch ASCII dosyalarını birebir istiyorsan, resmi depodan
+(`ascii/distro/android` ve benzerleri, MIT lisanslı) indirip
+`TerminalEngine.kt`'deki `brandBadge()`/`brandTheme()`
+fonksiyonlarına senin yapıştırman en güvenli yol — o zaman telif
+metnini de (MIT lisans + "Portions of ASCII art © Dylan Araps,
+dylanaraps/neofetch" gibi) eklerim.
+
+**Lisans atfı (bu README'de kalıcı olarak dursun):**
+> Bu projenin `neofetch` komutu, mimari fikir olarak
+> [dylanaraps/neofetch](https://github.com/dylanaraps/neofetch)
+> (MIT License, Copyright (c) 2015-2021 Dylan Araps) projesinden
+> ilham almıştır.

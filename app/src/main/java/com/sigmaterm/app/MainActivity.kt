@@ -1,7 +1,9 @@
 package com.sigmaterm.app
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.media.AudioManager
@@ -15,9 +17,13 @@ import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
+import android.util.TypedValue
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
+import android.view.ScaleGestureDetector
 import android.view.inputmethod.EditorInfo
+import android.widget.EditText
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -30,6 +36,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var engine: TerminalEngine
     private lateinit var audioManager: AudioManager
+    private lateinit var uiPrefs: SharedPreferences
 
     // Command history navigation (↑ / ↓)
     private var historyIndex = -1
@@ -41,6 +48,12 @@ class MainActivity : AppCompatActivity() {
 
     private var suppressWatcher = false
     private var lastTextLength = 0
+
+    // Pinch-to-zoom font size
+    private var fontSizeSp = 13f
+    private val minFontSizeSp = 9f
+    private val maxFontSizeSp = 26f
+    private lateinit var scaleDetector: ScaleGestureDetector
 
     private val manageAllFilesLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -61,6 +74,22 @@ class MainActivity : AppCompatActivity() {
 
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         audioManager.loadSoundEffects()
+
+        uiPrefs = getSharedPreferences("sigmaterm_ui", MODE_PRIVATE)
+        fontSizeSp = uiPrefs.getFloat("font_size_sp", 13f)
+        applyFontSize()
+
+        scaleDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                fontSizeSp = (fontSizeSp * detector.scaleFactor).coerceIn(minFontSizeSp, maxFontSizeSp)
+                applyFontSize()
+                return true
+            }
+
+            override fun onScaleEnd(detector: ScaleGestureDetector) {
+                uiPrefs.edit().putFloat("font_size_sp", fontSizeSp).apply()
+            }
+        })
 
         engine = TerminalEngine(applicationContext)
 
@@ -115,6 +144,17 @@ class MainActivity : AppCompatActivity() {
         setupExtraKeys()
     }
 
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        ev?.let { scaleDetector.onTouchEvent(it) }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun applyFontSize() {
+        binding.outputText.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSizeSp)
+        binding.commandInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSizeSp)
+        binding.promptLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSizeSp)
+    }
+
     override fun onResume() {
         super.onResume()
         // Silently pick up storage access if it was granted from system settings.
@@ -124,6 +164,51 @@ class MainActivity : AppCompatActivity() {
             appendLine(Line("Full storage access granted. Now browsing /storage/emulated/0", LineType.INFO))
             updatePrompt()
         }
+    }
+
+    // -----------------------------------------------------
+    // sigmaterm-change-token menu
+    // -----------------------------------------------------
+
+    private fun showTokenMenu() {
+        val options = arrayOf("Manual Token", "Automatic Token")
+        AlertDialog.Builder(this)
+            .setTitle("ΣTerm — GitHub Token")
+            .setItems(options) { _, which ->
+                if (which == 0) showManualTokenInput() else useAutomaticToken()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun useAutomaticToken() {
+        val ok = engine.useAutomaticToken()
+        if (ok) {
+            appendLine(Line("Automatic token applied.", LineType.INFO))
+        } else {
+            appendLine(Line("No built-in token is configured in this build. Falling back to unauthenticated requests.", LineType.ERROR))
+        }
+    }
+
+    private fun showManualTokenInput() {
+        val input = EditText(this).apply {
+            hint = "ghp_..."
+            setSingleLine(true)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Enter GitHub Token")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val token = input.text.toString().trim()
+                if (token.isBlank()) {
+                    appendLine(Line("sigmaterm-change-token: empty token, nothing saved.", LineType.ERROR))
+                } else {
+                    engine.setManualToken(token)
+                    appendLine(Line("Manual token saved.", LineType.INFO))
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     // -----------------------------------------------------
@@ -275,6 +360,7 @@ class MainActivity : AppCompatActivity() {
                     "__CLEAR__" -> binding.outputText.text = ""
                     "__EXIT__" -> finish()
                     "__REQUEST_STORAGE__" -> requestStorageAccess()
+                    "__SHOW_TOKEN_MENU__" -> showTokenMenu()
                     else -> appendLine(line)
                 }
             }
@@ -314,9 +400,26 @@ class MainActivity : AppCompatActivity() {
             LineType.INFO -> "[*] "
             else -> ""
         }
-        val text = prefix + line.text
-        val span = SpannableStringBuilder(text + "\n")
-        span.setSpan(ForegroundColorSpan(color), 0, text.length, 0)
+        val leftText = prefix + line.text
+
+        val span = SpannableStringBuilder()
+        if (line.rightText != null) {
+            // Side-by-side rendering (used by neofetch): left info column + right logo column.
+            val padded = leftText.padEnd(30)
+            val startLeft = span.length
+            span.append(padded)
+            span.setSpan(ForegroundColorSpan(color), startLeft, span.length, 0)
+
+            val startRight = span.length
+            span.append(line.rightText)
+            span.setSpan(ForegroundColorSpan(line.rightColor ?: color), startRight, span.length, 0)
+            span.append("\n")
+        } else {
+            span.append(leftText)
+            span.setSpan(ForegroundColorSpan(color), 0, leftText.length, 0)
+            span.append("\n")
+        }
+
         binding.outputText.append(span)
         scrollToBottom()
     }
