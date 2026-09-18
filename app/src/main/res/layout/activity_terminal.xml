@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/dtfa_bg"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/dtfa_surface"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="6dp"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_logo_src"
+            android:contentDescription="@string/app_name" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="@string/app_name"
+            android:textColor="@color/dtfa_text"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnCtrlC"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_ctrl_c"
+            android:textColor="@color/dtfa_accent"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btnClear"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_clear"
+            android:textColor="@color/dtfa_muted"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:id="@+id/outputScroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="8dp"
+        android:scrollbars="vertical">
+
+        <TextView
+            android:id="@+id/outputText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/terminus"
+            android:textColor="@color/dtfa_text"
+            android:textSize="12sp"
+            android:textIsSelectable="true"
+            android:typeface="monospace" />
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/dtfa_surface"
+        android:orientation="horizontal"
+        android:padding="6dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="$"
+            android:fontFamily="@font/terminus"
+            android:textColor="@color/dtfa_accent"
+            android:textStyle="bold"
+            android:paddingHorizontal="6dp" />
+
+        <EditText
+            android:id="@+id/inputLine"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@null"
+            android:fontFamily="@font/terminus"
+            android:hint="@string/terminal_input_hint"
+            android:textColor="@color/dtfa_text"
+            android:textColorHint="@color/dtfa_muted"
+            android:imeOptions="actionSend"
+            android:inputType="textNoSuggestions|textMultiLine"
+            android:maxLines="4"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+</LinearLayout>

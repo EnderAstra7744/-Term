@@ -1,23 +1,11 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.SigmaTerm" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="android:statusBarColor" tools:targetApi="l">@color/terminal_bg</item>
-        <item name="android:windowBackground">@color/terminal_bg</item>
-        <item name="colorPrimary">@color/terminal_prompt</item>
-        <item name="colorPrimaryDark">@color/terminal_bg</item>
-        <item name="colorAccent">@color/terminal_prompt</item>
-    </style>
-
-    <style name="ExtraKey">
-        <item name="android:layout_width">0dp</item>
-        <item name="android:layout_height">40dp</item>
-        <item name="android:layout_weight">1</item>
-        <item name="android:layout_margin">1dp</item>
-        <item name="android:background">@drawable/key_divider</item>
-        <item name="android:gravity">center</item>
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:textColor">@color/key_fg</item>
-        <item name="android:textSize">12sp</item>
-        <item name="android:clickable">true</item>
-        <item name="android:focusable">true</item>
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DTFA" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:statusBarColor">@color/dtfa_bg</item>
+        <item name="android:navigationBarColor">@color/dtfa_bg</item>
+        <item name="android:windowBackground">@color/dtfa_bg</item>
+        <item name="colorPrimary">@color/dtfa_accent</item>
+        <item name="colorPrimaryDark">@color/dtfa_accent_dark</item>
+        <item name="colorAccent">@color/dtfa_accent</item>
     </style>
 </resources>

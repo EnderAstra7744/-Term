@@ -1,4 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ΣTerm</string>
-    <string name="input_hint">komut yaz…</string>
+    <string name="app_name">DTFA</string>
+    <string name="setup_title">DTFA kuruluyor</string>
+    <string name="setup_message">Debian rootfs ilk çalıştırmada açılıyor, bu biraz sürebilir…</string>
+    <string name="setup_progress_fmt">%1$d dosya çıkarıldı (%2$s)</string>
+    <string name="terminal_input_hint">komut yaz…</string>
+    <string name="action_ctrl_c">Ctrl+C</string>
+    <string name="action_clear">Temizle</string>
+    <string name="action_restart">Oturumu yeniden başlat</string>
+    <string name="session_ended_fmt">\n[oturum sona erdi, çıkış kodu: %1$d]\n</string>
+    <string name="error_no_arm64">Bu cihaz arm64-v8a desteklemiyor, bu rootfs bu cihazda çalışmaz.</string>
 </resources>
