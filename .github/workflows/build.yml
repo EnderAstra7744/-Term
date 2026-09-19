@@ -20,13 +20,22 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install NDK + CMake
+      # ubuntu-latest runners already ship a full Android SDK (cmdline-tools,
+      # platform-tools, a recent platform/build-tools) at $ANDROID_HOME.
+      # We stopped using android-actions/setup-android@v3 here: it runs
+      # `sdkmanager tools` internally to "prime" the SDK, and that legacy
+      # `tools` package no longer exists in Google's repository, which made
+      # the whole step fail with exit code 1 (that's the crash you hit).
+      - name: Accept SDK licenses & install NDK/CMake
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "ndk;26.1.10909125" "cmake;3.22.1"
+          set -euxo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME" -maxdepth 4 -name sdkmanager -type f | sort -V | tail -n1)"
+          fi
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
 
       # --------------------------------------------------------------
       # proot binary (arm64-v8a). Packaged as "libproot.so" and dropped
@@ -58,7 +67,7 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
         env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/26.1.10909125
+          ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT || env.ANDROID_HOME }}/ndk/26.1.10909125
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
