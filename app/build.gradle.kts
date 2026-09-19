@@ -11,7 +11,12 @@ android {
     defaultConfig {
         applicationId = "com.dtfa.terminal"
         minSdk = 24
-        targetSdk = 34
+        // Deliberately NOT 29+: Android 10+ blocks executing binaries that live in
+        // an app's own writable data directory (exactly where our extracted rootfs
+        // sits). Termux and every other proot-based Android app hit this same wall
+        // and fixed it the same way — this app isn't going to the Play Store, so
+        // there's no reason to eat the restriction. See README.md for details.
+        targetSdk = 28
         versionCode = 1
         versionName = "1.0"
 

@@ -133,6 +133,12 @@ istersen bunu da ekleyebilirim.
 - Ağ: proot ayrı bir network namespace açmıyor, uygulamanın kendi ağ
   bağlantısını kullanıyor — yani `apt update`/`pip install` içeride de
   çalışır, telefonun internetine ihtiyaç var.
+- Uygulama bilinçli olarak **`targetSdk 28`** kullanıyor. Android 10+ (API 29+),
+  bir uygulamanın kendi yazılabilir veri klasörüne çıkardığı dosyaları
+  **çalıştırmasını** engelliyor — tam olarak rootfs'in durduğu yer. Termux dahil
+  proot tabanlı hemen hemen her Android uygulaması bu duvara çarpıp aynı şekilde
+  çözüyor (targetSdk'yı düşürerek). Play Store'a gitmeyeceği için bunun bir
+  maliyeti yok.
 - Depolama izni istemiyoruz çünkü her şey uygulamanın kendi private
   klasöründe (`/data/data/com.dtfa.terminal/files/debian`) tutuluyor —
   bu da uygulama silinince rootfs'un da otomatik silinmesi anlamına gelir.
