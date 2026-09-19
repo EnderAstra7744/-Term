@@ -56,11 +56,29 @@ class TerminalActivity : AppCompatActivity() {
             },
             onFinished = { exitCode ->
                 runOnUiThread {
-                    outputText.append(getString(R.string.session_ended_fmt, exitCode))
+                    outputText.append(formatExitMessage(exitCode))
                 }
             }
         )
         session?.start(rows = 30, cols = 90)
+    }
+
+    private fun formatExitMessage(exitCode: Int): String {
+        if (exitCode <= -1000) {
+            val signal = -exitCode - 1000
+            val name = when (signal) {
+                4 -> "SIGILL (kod uyumsuzluğu/bozuk binary olabilir)"
+                6 -> "SIGABRT"
+                7 -> "SIGBUS (mimari/uyumsuzluk olabilir)"
+                8 -> "SIGFPE"
+                9 -> "SIGKILL"
+                11 -> "SIGSEGV (proot binary'si bu cihazla uyumsuz olabilir)"
+                31 -> "SIGSYS (bir syscall engellenmiş olabilir — SELinux/seccomp)"
+                else -> "sinyal $signal"
+            }
+            return getString(R.string.session_ended_signal_fmt, name)
+        }
+        return getString(R.string.session_ended_fmt, exitCode)
     }
 
     private fun sendCurrentInput() {

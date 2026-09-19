@@ -11,6 +11,7 @@
 #include <jni.h>
 #include <pty.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -90,7 +91,9 @@ Java_com_dtfa_terminal_PtyNative_createSubprocess(
             }
         }
         execvp(cmd, argv);
-        // If we reach here, exec failed.
+        // If we reach here, exec failed — print why so it actually shows up in
+        // the terminal instead of just vanishing with a bare exit code.
+        dprintf(STDERR_FILENO, "dtfa: execvp(\"%s\") failed: %s\r\n", cmd, strerror(errno));
         _exit(127);
     }
 
@@ -125,6 +128,7 @@ Java_com_dtfa_terminal_PtyNative_waitFor(
     int status = 0;
     waitpid((pid_t) pid, &status, 0);
     if (WIFEXITED(status)) return WEXITSTATUS(status);
+    if (WIFSIGNALED(status)) return -(1000 + WTERMSIG(status));
     return -1;
 }
 

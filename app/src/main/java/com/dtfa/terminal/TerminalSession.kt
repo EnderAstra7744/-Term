@@ -27,11 +27,32 @@ class TerminalSession(
 
     private fun prootPath(): String = File(context.applicationInfo.nativeLibraryDir, "libproot.so").absolutePath
 
+    /**
+     * Prints a one-line sanity check before we even try to exec anything, so if
+     * proot fails silently (common: it prints nothing and just exits) we still
+     * know *why* from the terminal itself instead of just seeing a bare exit code.
+     */
+    private fun preflightCheck(prootCmd: String) {
+        val prootFile = File(prootCmd)
+        val diag = buildString {
+            append("[dtfa] proot: ").append(prootCmd).append('\n')
+            append("[dtfa]   exists=").append(prootFile.exists())
+            append(" canExecute=").append(prootFile.canExecute())
+            append(" size=").append(if (prootFile.exists()) prootFile.length() else -1).append('\n')
+            append("[dtfa] rootfs: ").append(rootfsDir.absolutePath)
+            append(" bashExists=").append(File(rootfsDir, "bin/bash").exists())
+            append('\n')
+        }
+        onOutput(diag.toByteArray(Charsets.UTF_8), diag.toByteArray(Charsets.UTF_8).size)
+    }
+
     fun start(rows: Int, cols: Int) {
         val tmpDir = File(context.filesDir, "proot-tmp").apply { mkdirs() }
-        val home = File(rootfsDir, "root").apply { mkdirs() }
+        File(rootfsDir, "root").mkdirs()
 
         val cmd = prootPath()
+        preflightCheck(cmd)
+
         val args = arrayOf(
             "-r", rootfsDir.absolutePath,
             "-0",

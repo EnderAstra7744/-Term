@@ -2,6 +2,7 @@ package com.dtfa.terminal
 
 import android.content.Context
 import android.system.Os
+import android.util.Log
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
@@ -18,14 +19,24 @@ import java.nio.file.LinkOption
 class RootfsInstaller(private val context: Context) {
 
     companion object {
+        private const val TAG = "DTFA-rootfs"
         private const val ASSET_PATH = "rootfs/debian-rootfs-arm64.tar.xz"
         private const val MARKER_NAME = ".dtfa_installed"
+
+        // Bump this whenever extraction logic changes in a way that could fix/break
+        // an existing install — it invalidates any rootfs extracted by an older
+        // version of this class, forcing a clean re-extraction after an app update.
+        private const val INSTALL_VERSION = 2
     }
 
     val rootfsDir: File get() = File(context.filesDir, "debian")
     private val markerFile: File get() = File(rootfsDir, MARKER_NAME)
 
-    fun isInstalled(): Boolean = markerFile.exists()
+    var lastSymlinkFailures: Int = 0
+        private set
+
+    fun isInstalled(): Boolean =
+        runCatching { markerFile.readText().trim() }.getOrNull() == INSTALL_VERSION.toString()
 
     fun interface ProgressListener {
         fun onProgress(entriesExtracted: Int, currentPath: String)
@@ -41,12 +52,13 @@ class RootfsInstaller(private val context: Context) {
         rootfsDir.mkdirs()
 
         var count = 0
+        var symlinkFailures = 0
         context.assets.open(ASSET_PATH).use { rawIn ->
             XZCompressorInputStream(BufferedInputStream(rawIn)).use { xzIn ->
                 TarArchiveInputStream(xzIn).use { tarIn ->
                     var entry: TarArchiveEntry? = tarIn.nextTarEntry
                     while (entry != null) {
-                        extractEntry(tarIn, entry)
+                        if (!extractEntry(tarIn, entry)) symlinkFailures++
                         count++
                         if (count % 25 == 0) listener?.onProgress(count, entry.name)
                         entry = tarIn.nextTarEntry
@@ -54,6 +66,8 @@ class RootfsInstaller(private val context: Context) {
                 }
             }
         }
+        lastSymlinkFailures = symlinkFailures
+        if (symlinkFailures > 0) Log.w(TAG, "$symlinkFailures symlink(s) failed to extract")
 
         // Make sure standard bind-mount targets exist even if the tar didn't include
         // empty directories for them.
@@ -61,7 +75,7 @@ class RootfsInstaller(private val context: Context) {
             File(rootfsDir, name).mkdirs()
         }
 
-        markerFile.writeText(System.currentTimeMillis().toString())
+        markerFile.writeText(INSTALL_VERSION.toString())
         listener?.onProgress(count, "done")
     }
 
@@ -81,10 +95,10 @@ class RootfsInstaller(private val context: Context) {
         runCatching { Files.delete(path) }
     }
 
-    private fun extractEntry(tarIn: TarArchiveInputStream, entry: TarArchiveEntry) {
+    private fun extractEntry(tarIn: TarArchiveInputStream, entry: TarArchiveEntry): Boolean {
         val outFile = File(rootfsDir, entry.name)
         // Guard against path traversal in a hostile tar.
-        if (!outFile.canonicalPath.startsWith(rootfsDir.canonicalPath)) return
+        if (!outFile.canonicalPath.startsWith(rootfsDir.canonicalPath)) return true
 
         when {
             entry.isDirectory -> outFile.mkdirs()
@@ -92,7 +106,11 @@ class RootfsInstaller(private val context: Context) {
             entry.isSymbolicLink -> {
                 outFile.parentFile?.mkdirs()
                 outFile.delete()
-                runCatching { Os.symlink(entry.linkName, outFile.absolutePath) }
+                val result = runCatching { Os.symlink(entry.linkName, outFile.absolutePath) }
+                if (result.isFailure) {
+                    Log.w(TAG, "symlink ${entry.name} -> ${entry.linkName} failed: ${result.exceptionOrNull()}")
+                    return false
+                }
             }
 
             entry.isLink -> {
@@ -108,6 +126,7 @@ class RootfsInstaller(private val context: Context) {
                 applyMode(outFile, entry.mode)
             }
         }
+        return true
     }
 
     private fun applyMode(file: File, mode: Int) {
