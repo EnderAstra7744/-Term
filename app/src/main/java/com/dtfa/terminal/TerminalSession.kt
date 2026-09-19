@@ -28,6 +28,32 @@ class TerminalSession(
     private fun prootPath(): String = File(context.applicationInfo.nativeLibraryDir, "libproot.so").absolutePath
 
     /**
+     * Runs a short-lived command through the same pty machinery and returns
+     * (captured output, exit code), blocking until it finishes. Only meant for
+     * small, fast diagnostic commands — not the main session.
+     */
+    private fun quickRun(cmd: String, args: Array<String>, env: Array<String>): Pair<String, Int> {
+        val pidOut = IntArray(1)
+        val fd = PtyNative.createSubprocess(cmd, null, args, env, pidOut, 24, 80)
+        if (fd < 0) return "" to -1
+        val pfd = ParcelFileDescriptor.adoptFd(fd)
+        val input = FileInputStream(pfd.fileDescriptor)
+        val out = StringBuilder()
+        val buf = ByteArray(4096)
+        try {
+            while (true) {
+                val n = input.read(buf)
+                if (n < 0) break
+                out.append(String(buf, 0, n, Charsets.UTF_8))
+            }
+        } catch (e: IOException) {
+            // pty closed — normal.
+        }
+        val code = PtyNative.waitFor(pidOut[0])
+        return out.toString() to code
+    }
+
+    /**
      * Prints a one-line sanity check before we even try to exec anything, so if
      * proot fails silently (common: it prints nothing and just exits) we still
      * know *why* from the terminal itself instead of just seeing a bare exit code.
@@ -44,6 +70,15 @@ class TerminalSession(
             append('\n')
         }
         onOutput(diag.toByteArray(Charsets.UTF_8), diag.toByteArray(Charsets.UTF_8).size)
+
+        // Bare "proot --version" needs nothing (no rootfs, no bindings) and has
+        // been a supported flag since proot's earliest releases, so this tells
+        // us — independent of everything else — whether this specific binary
+        // runs at all on this device.
+        val (verOut, verCode) = quickRun(prootCmd, arrayOf("--version"), arrayOf())
+        val verDiag = "[dtfa] proot --version -> exit=$verCode output=" +
+            (verOut.ifBlank { "(boş)" }.trim()) + "\n"
+        onOutput(verDiag.toByteArray(Charsets.UTF_8), verDiag.toByteArray(Charsets.UTF_8).size)
     }
 
     fun start(rows: Int, cols: Int) {
@@ -56,8 +91,6 @@ class TerminalSession(
         val args = arrayOf(
             "-r", rootfsDir.absolutePath,
             "-0",
-            "--link2symlink",
-            "--kill-on-exit",
             "-b", "/dev",
             "-b", "/proc",
             "-b", "/sys",
