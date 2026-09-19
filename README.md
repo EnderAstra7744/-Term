@@ -49,7 +49,7 @@ noktadasın.
 DTFA/
 ├── .github/workflows/build.yml     ← GitHub Actions: APK'yı otomatik derler
 ├── app/
-│   ├── build.gradle
+│   ├── build.gradle.kts
 │   └── src/main/
 │       ├── AndroidManifest.xml
 │       ├── cpp/                    ← pty.c + CMakeLists.txt (native köprü)
@@ -62,7 +62,7 @@ DTFA/
 │       │   └── RootfsInstaller.kt      (tar.xz çıkarma)
 │       ├── assets/rootfs/debian-rootfs-arm64.tar.xz   ← senin dosyan
 │       └── res/  (ikonlar, terminus.ttf, layout'lar, string'ler)
-├── build.gradle, settings.gradle, gradle.properties
+├── build.gradle.kts, settings.gradle.kts, gradle.properties
 ├── .gitattributes                  ← rootfs dosyasını Git LFS'e yönlendirir
 └── .gitignore
 ```
@@ -100,12 +100,14 @@ diske açmasını sağlıyor — yeni Android sürümlerinde çalışma zamanın
 kendi kendine açılan dosyaları çalıştırma kısıtlamasını böyle aşıyoruz):
 
 ```
-https://raw.githubusercontent.com/foxytouxxx/freeroot/main/proot
+https://github.com/proot-me/proot-static-build/raw/refs/heads/master/static/proot-arm64
 ```
 
-Bu, "root'suz proot ile rootfs çalıştır" işini yapan bilinen açık kaynak
-projelerin kullandığı statik bir binary. Eğer bu URL ileride değişir/kaybolursa
-workflow'daki "Fetch static proot" adımı kırılır — o zaman iki alternatif:
+Bu, proot'un **resmi** static-build reposundan gelen, statik derlenmiş
+(paylaşımlı kütüphaneye bağımlı olmayan) bir arm64 binary — bu yüzden
+Termux'un kendi `$PREFIX` kütüphanelerine ihtiyaç duymuyor. Workflow bu
+adres çalışmazsa otomatik olarak ikinci bir statik binary'ye (freeroot
+projesinden) düşer. İkisi de çalışmazsa, iki alternatif daha var:
 
 - **Termux paket deposu:** `packages.termux.dev` üzerinden `proot` .deb
   paketini çekmek — ama bu binary Termux'un kendi `$PREFIX/lib` altındaki
