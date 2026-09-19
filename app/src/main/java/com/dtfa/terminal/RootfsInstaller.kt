@@ -8,6 +8,8 @@ import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.Files
+import java.nio.file.LinkOption
 
 /**
  * Extracts the bundled Debian rootfs (app/src/main/assets/rootfs/debian-rootfs-arm64.tar.xz)
@@ -35,7 +37,7 @@ class RootfsInstaller(private val context: Context) {
     fun install(listener: ProgressListener? = null) {
         if (isInstalled()) return
 
-        if (rootfsDir.exists()) rootfsDir.deleteRecursively()
+        if (rootfsDir.exists()) deleteRecursivelySafe(rootfsDir)
         rootfsDir.mkdirs()
 
         var count = 0
@@ -61,6 +63,22 @@ class RootfsInstaller(private val context: Context) {
 
         markerFile.writeText(System.currentTimeMillis().toString())
         listener?.onProgress(count, "done")
+    }
+
+    /**
+     * A rootfs-safe recursive delete: never follows symlinks (Debian's merged-/usr layout is
+     * full of them, e.g. /lib -> usr/lib), so it can't loop forever or wander outside the
+     * directory. Kotlin's own `File.deleteRecursively()` walks through symlink targets in a
+     * way that occasionally throws "rootDir must be verified to be directory beforehand" on
+     * exactly this kind of layout — this avoids that entirely.
+     */
+    private fun deleteRecursivelySafe(file: File) {
+        val path = file.toPath()
+        if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return
+        if (!Files.isSymbolicLink(path) && Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+            file.listFiles()?.forEach { deleteRecursivelySafe(it) }
+        }
+        runCatching { Files.delete(path) }
     }
 
     private fun extractEntry(tarIn: TarArchiveInputStream, entry: TarArchiveEntry) {
