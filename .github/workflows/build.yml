@@ -43,19 +43,23 @@ jobs:
       # executable file at install time (avoids the "noexec on app data"
       # problem newer Android versions have for files extracted at runtime).
       #
-      # Source: a statically-linked proot build for aarch64/Android, from
-      # the well-known "freeroot" project (same trick used by several
-      # no-root Linux-on-Android one-liners). If this URL ever goes stale,
-      # see README.md -> "proot binary kaynağı" for two alternative sources.
+      # Primary source: proot's own official static-build repo
+      # (proot-me/proot-static-build), a statically-linked arm64 binary —
+      # no shared-lib dependencies, so it doesn't care that it's not
+      # running inside a real Termux install. Falls back to a second
+      # known-good static build if the first URL ever goes away.
       # --------------------------------------------------------------
       - name: Fetch static proot (arm64)
         run: |
           set -euxo pipefail
           mkdir -p app/src/main/jniLibs/arm64-v8a
-          curl -fL --retry 3 -o app/src/main/jniLibs/arm64-v8a/libproot.so \
+          OUT=app/src/main/jniLibs/arm64-v8a/libproot.so
+          curl -fL --retry 3 -o "$OUT" \
+            https://github.com/proot-me/proot-static-build/raw/refs/heads/master/static/proot-arm64 \
+          || curl -fL --retry 3 -o "$OUT" \
             https://raw.githubusercontent.com/foxytouxxx/freeroot/main/proot
-          chmod +x app/src/main/jniLibs/arm64-v8a/libproot.so
-          file app/src/main/jniLibs/arm64-v8a/libproot.so
+          chmod +x "$OUT"
+          file "$OUT"
 
       # No gradlew is committed to this repo (its wrapper jar is a binary we
       # can't hand-write) — this action installs Gradle itself instead.
