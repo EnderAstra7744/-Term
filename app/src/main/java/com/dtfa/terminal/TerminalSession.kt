@@ -71,13 +71,24 @@ class TerminalSession(
         }
         onOutput(diag.toByteArray(Charsets.UTF_8), diag.toByteArray(Charsets.UTF_8).size)
 
+        // Direct test: can this app ptrace its own children at all? proot cannot
+        // function without this — if it's blocked (SELinux/seccomp on this ROM),
+        // nothing proot-based will ever work here, regardless of which binary.
+        val ptraceErrno = PtyNative.testPtrace()
+        val ptraceDiag = "[dtfa] ptrace self-test -> " +
+            if (ptraceErrno == 0) "OK\n" else "ENGELLENMİŞ (errno=$ptraceErrno)\n"
+        onOutput(ptraceDiag.toByteArray(Charsets.UTF_8), ptraceDiag.toByteArray(Charsets.UTF_8).size)
+
         // Bare "proot --version" needs nothing (no rootfs, no bindings) and has
         // been a supported flag since proot's earliest releases, so this tells
         // us — independent of everything else — whether this specific binary
-        // runs at all on this device.
-        val (verOut, verCode) = quickRun(prootCmd, arrayOf("--version"), arrayOf())
-        val verDiag = "[dtfa] proot --version -> exit=$verCode output=" +
-            (verOut.ifBlank { "(boş)" }.trim()) + "\n"
+        // runs at all on this device. Sanitize \r out of its output first: our
+        // terminal treats \r as "erase current line", which would otherwise eat
+        // this very prefix if proot's own output starts with one.
+        val (verOutRaw, verCode) = quickRun(prootCmd, arrayOf("--version"), arrayOf())
+        val verOut = verOutRaw.replace("\r\n", "\n").replace('\r', '\n').trim()
+        val verDiag = "[dtfa] proot --version -> exit=$verCode\n[dtfa]   output=" +
+            (verOut.ifBlank { "(boş)" }) + "\n"
         onOutput(verDiag.toByteArray(Charsets.UTF_8), verDiag.toByteArray(Charsets.UTF_8).size)
     }
 

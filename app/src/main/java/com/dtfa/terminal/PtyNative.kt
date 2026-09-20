@@ -27,4 +27,7 @@ object PtyNative {
     external fun waitFor(pid: Int): Int
     external fun closeFd(fd: Int)
     external fun sendSignal(pid: Int, signal: Int)
+
+    /** Returns 0 if this process can ptrace its own children, else the errno (EPERM=1 = blocked). */
+    external fun testPtrace(): Int
 }

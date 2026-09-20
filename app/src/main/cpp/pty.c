@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
+#include <sys/ptrace.h>
 #include <signal.h>
 #include <android/log.h>
 
@@ -142,4 +143,24 @@ JNIEXPORT void JNICALL
 Java_com_dtfa_terminal_PtyNative_sendSignal(
         JNIEnv *env, jclass clazz, jint pid, jint signal) {
     kill((pid_t) pid, signal);
+}
+
+/**
+ * Direct, minimal test of whether this process is even allowed to ptrace its
+ * own children — the one syscall proot fundamentally cannot work without.
+ * Returns 0 if PTRACE_TRACEME succeeded, or the positive errno if it didn't
+ * (most tellingly EPERM=1: blocked by SELinux/seccomp on this device/ROM).
+ */
+JNIEXPORT jint JNICALL
+Java_com_dtfa_terminal_PtyNative_testPtrace(JNIEnv *env, jclass clazz) {
+    pid_t pid = fork();
+    if (pid < 0) return -1;
+    if (pid == 0) {
+        long r = ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+        _exit(r == 0 ? 0 : (errno != 0 ? errno : 99));
+    }
+    int status = 0;
+    waitpid(pid, &status, 0);
+    if (WIFEXITED(status)) return WEXITSTATUS(status);
+    return -1;
 }
